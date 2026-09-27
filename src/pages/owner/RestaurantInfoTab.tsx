@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { supabase } from "../../lib/supabase";
+import { appUrl } from "../../lib/url";
 import { Button } from "../../components/ui/button";
 import { Input, Label, Textarea } from "../../components/ui/input";
 import { QrDownload } from "../../components/QrDownload";
@@ -43,7 +44,7 @@ export function RestaurantInfoTab({
     setUploadingLogo(false);
   }
 
-  const menuUrl = `${window.location.origin}/${restaurant.slug}`;
+  const menuUrl = appUrl(restaurant.slug);
 
   return (
     <div className="grid gap-6 lg:grid-cols-2">

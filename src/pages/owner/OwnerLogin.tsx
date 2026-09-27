@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { supabase } from "../../lib/supabase";
+import { appUrl } from "../../lib/url";
 import { Button } from "../../components/ui/button";
 import { Input, Label } from "../../components/ui/input";
 
@@ -15,7 +16,7 @@ export default function OwnerLogin() {
     setLoading(true);
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: `${window.location.origin}/panel` },
+      options: { emailRedirectTo: appUrl("panel") },
     });
     setLoading(false);
     if (error) {

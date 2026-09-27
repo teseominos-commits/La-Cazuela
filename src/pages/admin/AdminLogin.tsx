@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { supabase } from "../../lib/supabase";
+import { appUrl } from "../../lib/url";
 import { Button } from "../../components/ui/button";
 import { Input, Label } from "../../components/ui/input";
 
@@ -13,7 +14,7 @@ export default function AdminLogin() {
     setLoading(true);
     await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: `${window.location.origin}/admin` },
+      options: { emailRedirectTo: appUrl("admin") },
     });
     setLoading(false);
     setSent(true);
