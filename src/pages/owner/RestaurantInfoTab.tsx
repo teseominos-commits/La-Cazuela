@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { appUrl } from "../../lib/url";
+import { fileExtension } from "../../lib/files";
 import { Button } from "../../components/ui/button";
 import { Input, Label, Textarea } from "../../components/ui/input";
 import { QrDownload } from "../../components/QrDownload";
@@ -32,7 +33,7 @@ export function RestaurantInfoTab({
 
   async function handleLogo(file: File) {
     setUploadingLogo(true);
-    const path = `${restaurant.id}/logo-${Date.now()}.jpg`;
+    const path = `${restaurant.id}/logo-${Date.now()}.${fileExtension(file)}`;
     const { error } = await supabase.storage
       .from("restaurant-assets")
       .upload(path, file, { upsert: true });
@@ -59,7 +60,7 @@ export function RestaurantInfoTab({
             {uploadingLogo ? "Subiendo…" : "Cambiar logo"}
             <input
               type="file"
-              accept="image/*"
+              accept="image/*,.svg,.png,.jpg,.jpeg,.webp"
               className="hidden"
               onChange={(e) => e.target.files && handleLogo(e.target.files[0])}
             />

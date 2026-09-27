@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { supabase } from "../../lib/supabase";
+import { fileExtension } from "../../lib/files";
 import { Button } from "../../components/ui/button";
 import { Input, Label, Textarea } from "../../components/ui/input";
 import { AllergenIcon } from "../../components/AllergenIcon";
@@ -105,7 +106,7 @@ export function DishesTab({
 
   async function handlePhoto(d: Dish, file: File) {
     setUploadingId(d.id);
-    const path = `${restaurantId}/dishes/${d.id}-${Date.now()}.jpg`;
+    const path = `${restaurantId}/dishes/${d.id}-${Date.now()}.${fileExtension(file)}`;
     const { error } = await supabase.storage
       .from("restaurant-assets")
       .upload(path, file, { upsert: true });
@@ -264,7 +265,7 @@ export function DishesTab({
               {uploadingId === d.id ? "Subiendo…" : "Foto"}
               <input
                 type="file"
-                accept="image/*"
+                accept="image/*,.svg,.png,.jpg,.jpeg,.webp"
                 className="hidden"
                 onChange={(e) => e.target.files && handlePhoto(d, e.target.files[0])}
               />
