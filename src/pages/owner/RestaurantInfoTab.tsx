@@ -60,7 +60,7 @@ export function RestaurantInfoTab({
             {uploadingLogo ? "Subiendo…" : "Cambiar logo"}
             <input
               type="file"
-              accept="image/*,.svg,.png,.jpg,.jpeg,.webp"
+              accept="image/png,image/jpeg,image/webp"
               className="hidden"
               onChange={(e) => e.target.files && handleLogo(e.target.files[0])}
             />

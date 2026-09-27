@@ -277,7 +277,7 @@ export function DishesTab({
                         {uploadingId === d.id ? "Subiendo…" : "Foto"}
                         <input
                           type="file"
-                          accept="image/*,.svg,.png,.jpg,.jpeg,.webp"
+                          accept="image/png,image/jpeg,image/webp"
                           className="hidden"
                           onChange={(e) => e.target.files && handlePhoto(d, e.target.files[0])}
                         />
