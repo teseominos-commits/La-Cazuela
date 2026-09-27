@@ -17,21 +17,23 @@ export default function PublicMenu() {
   const [dishes, setDishes] = useState<Dish[]>([]);
   const [dailyMenu, setDailyMenu] = useState<DailyMenu | null>(null);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
-  const [status, setStatus] = useState<"loading" | "ready" | "not-found">(
-    "loading",
-  );
+  const [status, setStatus] = useState<
+    "loading" | "ready" | "not-found" | "error"
+  >("loading");
 
   useEffect(() => {
     if (!slug) return;
     let cancelled = false;
 
-    async function load() {
-      const { data: r } = await supabase
+    async function loadOnce() {
+      const { data: r, error: rErr } = await supabase
         .from("restaurants")
         .select("*")
         .eq("slug", slug)
         .eq("status", "active")
         .maybeSingle();
+
+      if (rErr) throw rErr;
 
       if (!r) {
         if (!cancelled) setStatus("not-found");
@@ -43,7 +45,11 @@ export default function PublicMenu() {
       applyTheme(r.theme);
       document.title = `${r.name} — Carta digital`;
 
-      const [{ data: cats }, { data: ds }, { data: dm }] = await Promise.all([
+      const [
+        { data: cats, error: catsErr },
+        { data: ds, error: dsErr },
+        { data: dm, error: dmErr },
+      ] = await Promise.all([
         supabase
           .from("categories")
           .select("*")
@@ -60,6 +66,7 @@ export default function PublicMenu() {
           .eq("restaurant_id", r.id)
           .maybeSingle(),
       ]);
+      if (catsErr || dsErr || dmErr) throw catsErr ?? dsErr ?? dmErr;
 
       if (cancelled) return;
       setCategories((cats as Category[]) ?? []);
@@ -69,6 +76,20 @@ export default function PublicMenu() {
       setStatus("ready");
 
       supabase.rpc("increment_visit", { p_slug: slug }).then(() => {});
+    }
+
+    async function load(retriesLeft = 1) {
+      try {
+        await loadOnce();
+      } catch (err) {
+        if (cancelled) return;
+        if (retriesLeft > 0) {
+          load(retriesLeft - 1);
+        } else {
+          console.error("No se pudo cargar la carta:", err);
+          setStatus("error");
+        }
+      }
     }
 
     load();
@@ -104,6 +125,20 @@ export default function PublicMenu() {
     return (
       <div className="flex min-h-screen items-center justify-center text-[var(--color-text-soft)]">
         Cargando la carta…
+      </div>
+    );
+  }
+
+  if (status === "error") {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 px-6 text-center text-[var(--color-text-soft)]">
+        <p>No se ha podido cargar la carta. Comprueba tu conexión.</p>
+        <button
+          onClick={() => window.location.reload()}
+          className="rounded-full bg-neutral-800 px-4 py-2 text-sm text-white"
+        >
+          Reintentar
+        </button>
       </div>
     );
   }
