@@ -48,8 +48,8 @@ export function RestaurantInfoTab({
   const menuUrl = appUrl(restaurant.slug);
 
   return (
-    <div className="grid gap-6 lg:grid-cols-2">
-      <div className="max-w-lg space-y-3 rounded-2xl border border-black/10 bg-white p-5">
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div className="w-full max-w-lg space-y-3 rounded-2xl border border-black/10 bg-white p-5 min-w-0">
         <div className="flex items-center gap-3">
           {restaurant.logo_url ? (
             <img src={restaurant.logo_url} className="h-14 w-14 rounded-full object-cover" />
@@ -91,9 +91,9 @@ export function RestaurantInfoTab({
         </Button>
       </div>
 
-      <div className="flex flex-col items-center gap-3 rounded-2xl border border-black/10 bg-white p-5">
+      <div className="flex min-w-0 flex-col items-center gap-3 rounded-2xl border border-black/10 bg-white p-5">
         <h3 className="font-semibold">Tu código QR</h3>
-        <p className="text-center text-xs text-neutral-500">
+        <p className="max-w-full break-all text-center text-xs text-neutral-500">
           Descárgalo e imprímelo en tus mesas. Apunta a tu carta:
           <br />
           <span className="font-mono">{menuUrl}</span>

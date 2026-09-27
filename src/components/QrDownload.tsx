@@ -25,6 +25,10 @@ export function QrDownload({
         margin: 2,
         color: { dark: "#1c1c1c", light: "#ffffff" },
       });
+      // qrcode sets inline width/height matching the pixel size above,
+      // which overrides our Tailwind classes and can overflow narrow screens.
+      canvas.style.width = "100%";
+      canvas.style.height = "auto";
 
       if (logoUrl) {
         const ctx = canvas.getContext("2d");
@@ -72,7 +76,7 @@ export function QrDownload({
 
   return (
     <div className="flex flex-col items-center gap-3">
-      <canvas ref={canvasRef} className="h-48 w-48 rounded-lg border" />
+      <canvas ref={canvasRef} className="w-48 max-w-full rounded-lg border" />
       <Button onClick={download} disabled={!ready} size="sm">
         Descargar mi código QR
       </Button>

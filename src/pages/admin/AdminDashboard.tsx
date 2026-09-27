@@ -99,7 +99,7 @@ export default function AdminDashboard() {
         </Button>
       </div>
 
-      <form onSubmit={createRestaurant} className="mb-8 grid max-w-2xl gap-3 rounded-2xl border border-black/10 bg-white p-5 sm:grid-cols-3">
+      <form onSubmit={createRestaurant} className="mb-8 grid grid-cols-1 max-w-2xl gap-3 rounded-2xl border border-black/10 bg-white p-5 sm:grid-cols-3">
         <div className="sm:col-span-1">
           <Label>Nombre del restaurante</Label>
           <Input required value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
