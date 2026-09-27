@@ -246,39 +246,46 @@ export function DishesTab({
         {dishes.map((d) => (
           <div
             key={d.id}
-            className="flex items-center gap-3 rounded-xl border border-black/10 bg-white p-3"
+            className="rounded-xl border border-black/10 bg-white p-3"
           >
-            {d.photo_url ? (
-              <img src={d.photo_url} className="h-12 w-12 rounded-lg object-cover" />
-            ) : (
-              <div className="h-12 w-12 rounded-lg bg-neutral-100" />
-            )}
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium">{d.name}</p>
-              <p className="text-xs text-neutral-500">
-                {d.price.toFixed(2)} € · {d.allergens.map((a) => (
-                  <AllergenIcon key={a} code={a} />
-                ))}
-              </p>
+            <div className="flex items-start gap-3">
+              {d.photo_url ? (
+                <img src={d.photo_url} className="h-12 w-12 shrink-0 rounded-lg object-cover" />
+              ) : (
+                <div className="h-12 w-12 shrink-0 rounded-lg bg-neutral-100" />
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium">{d.name}</p>
+                <p className="text-xs text-neutral-500">{d.price.toFixed(2)} €</p>
+                {d.allergens.length > 0 && (
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {d.allergens.map((a) => (
+                      <AllergenIcon key={a} code={a} />
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-            <label className="cursor-pointer text-xs text-[var(--color-accent)] underline">
-              {uploadingId === d.id ? "Subiendo…" : "Foto"}
-              <input
-                type="file"
-                accept="image/*,.svg,.png,.jpg,.jpeg,.webp"
-                className="hidden"
-                onChange={(e) => e.target.files && handlePhoto(d, e.target.files[0])}
-              />
-            </label>
-            <Button size="sm" variant={d.is_sold_out ? "danger" : "secondary"} onClick={() => toggleSoldOut(d)}>
-              {d.is_sold_out ? "Agotado" : "Disponible"}
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => startEdit(d)}>
-              Editar
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => handleDelete(d.id)}>
-              Borrar
-            </Button>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <label className="cursor-pointer text-xs text-[var(--color-accent)] underline">
+                {uploadingId === d.id ? "Subiendo…" : "Foto"}
+                <input
+                  type="file"
+                  accept="image/*,.svg,.png,.jpg,.jpeg,.webp"
+                  className="hidden"
+                  onChange={(e) => e.target.files && handlePhoto(d, e.target.files[0])}
+                />
+              </label>
+              <Button size="sm" variant={d.is_sold_out ? "danger" : "secondary"} onClick={() => toggleSoldOut(d)}>
+                {d.is_sold_out ? "Agotado" : "Disponible"}
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => startEdit(d)}>
+                Editar
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => handleDelete(d.id)}>
+                Borrar
+              </Button>
+            </div>
           </div>
         ))}
       </div>
