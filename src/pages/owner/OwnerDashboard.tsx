@@ -127,7 +127,12 @@ export default function OwnerDashboard() {
           <DailyMenuTab restaurantId={restaurant.id} dailyMenu={dailyMenu} onChanged={refresh} />
         )}
         {tab === "restaurante" && (
-          <RestaurantInfoTab restaurant={restaurant} onChanged={refresh} />
+          <RestaurantInfoTab
+            restaurant={restaurant}
+            categories={categories}
+            dishes={dishes}
+            onChanged={refresh}
+          />
         )}
         {tab === "estadisticas" && <StatsTab restaurantId={restaurant.id} />}
       </main>

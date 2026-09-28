@@ -1,6 +1,6 @@
 import { ALLERGEN_LABELS, type AllergenCode } from "../types";
 
-const INITIALS: Record<AllergenCode, string> = {
+export const ALLERGEN_INITIALS: Record<AllergenCode, string> = {
   gluten: "Gl",
   crustaceos: "Cr",
   huevos: "Hu",
@@ -23,7 +23,7 @@ export function AllergenIcon({ code }: { code: AllergenCode }) {
       title={ALLERGEN_LABELS[code]}
       className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-neutral-300 bg-neutral-50 text-[9px] font-semibold text-neutral-500"
     >
-      {INITIALS[code]}
+      {ALLERGEN_INITIALS[code]}
     </span>
   );
 }
