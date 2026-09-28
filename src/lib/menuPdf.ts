@@ -1,5 +1,7 @@
 import { jsPDF } from "jspdf";
+import QRCode from "qrcode";
 import { ALLERGEN_INITIALS } from "../components/AllergenIcon";
+import { appUrl } from "./url";
 import { ALLERGEN_LABELS, type AllergenCode, type Category, type Dish, type Restaurant } from "../types";
 
 import playfairBoldUrl from "../assets/fonts/PlayfairDisplay-Bold.ttf";
@@ -11,7 +13,7 @@ const PAGE_WIDTH = 210;
 const PAGE_HEIGHT = 297;
 const MARGIN = 20;
 const CONTENT_WIDTH = PAGE_WIDTH - MARGIN * 2;
-const FOOTER_RESERVED = 16;
+const FOOTER_RESERVED = 26;
 const ACCENT: [number, number, number] = [122, 59, 46];
 
 function formatPrice(price: number) {
@@ -60,12 +62,14 @@ export async function generateMenuPdf(
 ) {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
 
-  const [playfairBold, latoRegular, latoItalic, latoBold, logo] = await Promise.all([
+  const menuUrl = appUrl(restaurant.slug);
+  const [playfairBold, latoRegular, latoItalic, latoBold, logo, qrDataUrl] = await Promise.all([
     fetchAsBase64(playfairBoldUrl),
     fetchAsBase64(latoRegularUrl),
     fetchAsBase64(latoItalicUrl),
     fetchAsBase64(latoBoldUrl),
     restaurant.logo_url ? loadLogoAsPngDataUrl(restaurant.logo_url) : Promise.resolve(null),
+    QRCode.toDataURL(menuUrl, { width: 200, margin: 1, color: { dark: "#1c1c1c", light: "#ffffff" } }),
   ]);
 
   doc.addFileToVFS("PlayfairDisplay-Bold.ttf", playfairBold);
@@ -80,19 +84,38 @@ export async function generateMenuPdf(
   let y = MARGIN;
 
   function drawFooter() {
-    const parts = [restaurant.address, restaurant.hours, restaurant.phone].filter(Boolean);
-    if (parts.length === 0) return;
-    const footerY = PAGE_HEIGHT - MARGIN + 2;
+    const lineY = PAGE_HEIGHT - MARGIN - FOOTER_RESERVED + 6;
     doc.setDrawColor(225);
     doc.setLineWidth(0.2);
-    doc.line(MARGIN, footerY - 4, PAGE_WIDTH - MARGIN, footerY - 4);
-    doc.setFont("Lato", "normal");
-    doc.setFontSize(8);
-    doc.setTextColor(130);
-    doc.text(parts.join("   ·   "), PAGE_WIDTH / 2, footerY, {
-      align: "center",
-      maxWidth: CONTENT_WIDTH,
-    });
+    doc.line(MARGIN, lineY, PAGE_WIDTH - MARGIN, lineY);
+
+    const qrSize = 15;
+    const qrX = PAGE_WIDTH - MARGIN - qrSize;
+    const qrY = lineY + 4;
+    doc.addImage(qrDataUrl, "PNG", qrX, qrY, qrSize, qrSize);
+
+    const captionX = qrX - 4;
+    doc.setFont("Lato", "bold");
+    doc.setFontSize(7.5);
+    doc.setTextColor(90);
+    doc.text("Carta digital actualizada", captionX, qrY + 5, { align: "right" });
+    doc.setFont("Lato", "italic");
+    doc.setFontSize(6.5);
+    doc.setTextColor(140);
+    const disclaimerLines = doc.splitTextToSize(
+      "Puede haber platos no incluidos en esta carta impresa",
+      62,
+    );
+    doc.text(disclaimerLines, captionX, qrY + 9, { align: "right" });
+
+    const parts = [restaurant.address, restaurant.hours, restaurant.phone].filter(Boolean);
+    if (parts.length > 0) {
+      doc.setFont("Lato", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(130);
+      const infoLines = doc.splitTextToSize(parts.join("   ·   "), CONTENT_WIDTH - qrSize - 70);
+      doc.text(infoLines, MARGIN, qrY + 3);
+    }
     doc.setTextColor(0);
   }
 
