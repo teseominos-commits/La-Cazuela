@@ -28,6 +28,16 @@ export function RestaurantInfoTab({
   });
   const [saving, setSaving] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
+
+  async function handleDownloadPdf() {
+    setGeneratingPdf(true);
+    try {
+      await downloadMenuPdf(restaurant, categories, dishes);
+    } finally {
+      setGeneratingPdf(false);
+    }
+  }
 
   async function save() {
     setSaving(true);
@@ -119,11 +129,8 @@ export function RestaurantInfoTab({
         <p className="max-w-full text-center text-xs text-neutral-500">
           Un PDF listo para imprimir con tu carta completa por categorías.
         </p>
-        <Button
-          size="sm"
-          onClick={() => downloadMenuPdf(restaurant, categories, dishes)}
-        >
-          Descargar carta en PDF
+        <Button size="sm" onClick={handleDownloadPdf} disabled={generatingPdf}>
+          {generatingPdf ? "Generando…" : "Descargar carta en PDF"}
         </Button>
       </div>
 
