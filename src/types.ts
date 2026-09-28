@@ -54,6 +54,8 @@ export const ALLERGEN_LABELS: Record<AllergenCode, string> = {
   moluscos: "Moluscos",
 };
 
+export type PdfQrSize = "pequeno" | "mediano" | "grande";
+
 export interface Restaurant {
   id: string;
   slug: string;
@@ -65,6 +67,8 @@ export interface Restaurant {
   hours: string | null;
   phone: string | null;
   footer_text: string | null;
+  pdf_qr_enabled: boolean;
+  pdf_qr_size: PdfQrSize;
   plan: "basico" | "completo" | "premium";
   status: "active" | "paused";
   owner_user_id: string | null;

@@ -7,7 +7,7 @@ import { downloadCompactMenuPdf } from "../../lib/menuPdfCompact";
 import { Button } from "../../components/ui/button";
 import { Input, Label, Textarea } from "../../components/ui/input";
 import { QrDownload } from "../../components/QrDownload";
-import type { Category, Dish, Restaurant } from "../../types";
+import type { Category, Dish, PdfQrSize, Restaurant } from "../../types";
 
 export function RestaurantInfoTab({
   restaurant,
@@ -26,6 +26,8 @@ export function RestaurantInfoTab({
     hours: restaurant.hours ?? "",
     phone: restaurant.phone ?? "",
     footer_text: restaurant.footer_text ?? "",
+    pdf_qr_enabled: restaurant.pdf_qr_enabled,
+    pdf_qr_size: restaurant.pdf_qr_size,
   });
   const [saving, setSaving] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
@@ -110,6 +112,28 @@ export function RestaurantInfoTab({
         <div>
           <Label>Texto del pie de página</Label>
           <Textarea rows={2} value={form.footer_text} onChange={(e) => setForm((f) => ({ ...f, footer_text: e.target.value }))} />
+        </div>
+        <div className="rounded-lg border border-black/10 p-3">
+          <Label>Código QR en la carta impresa (PDF)</Label>
+          <label className="mt-1 flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={form.pdf_qr_enabled}
+              onChange={(e) => setForm((f) => ({ ...f, pdf_qr_enabled: e.target.checked }))}
+            />
+            Mostrar código QR
+          </label>
+          {form.pdf_qr_enabled && (
+            <select
+              className="mt-2 w-full rounded-lg border border-black/15 px-3 py-2 text-sm"
+              value={form.pdf_qr_size}
+              onChange={(e) => setForm((f) => ({ ...f, pdf_qr_size: e.target.value as PdfQrSize }))}
+            >
+              <option value="pequeno">Pequeño</option>
+              <option value="mediano">Mediano</option>
+              <option value="grande">Grande</option>
+            </select>
+          )}
         </div>
         <Button onClick={save} disabled={saving}>
           {saving ? "Guardando…" : "Guardar cambios"}

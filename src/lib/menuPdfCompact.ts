@@ -15,6 +15,12 @@ const SEPARATOR_HEIGHT = 5;
 const TITLE_HEIGHT = 6;
 const DISH_LINE_HEIGHT = 3.2;
 
+const QR_SIZE_MM: Record<Restaurant["pdf_qr_size"], number> = {
+  pequeno: 9,
+  mediano: 12,
+  grande: 16,
+};
+
 export async function generateCompactMenuPdf(
   restaurant: Restaurant,
   categories: Category[],
@@ -41,7 +47,9 @@ export async function generateCompactMenuPdf(
   const [, logo, qrDataUrl, ...photoResults] = await Promise.all([
     loadPdfFonts(doc),
     restaurant.logo_url ? loadImageAsPngDataUrl(restaurant.logo_url) : Promise.resolve(null),
-    QRCode.toDataURL(menuUrl, { width: 200, margin: 1, color: { dark: "#1c1c1c", light: "#ffffff" } }),
+    restaurant.pdf_qr_enabled
+      ? QRCode.toDataURL(menuUrl, { width: 200, margin: 1, color: { dark: "#1c1c1c", light: "#ffffff" } })
+      : Promise.resolve(null),
     ...closingPhotos.map((d) => loadImageAsPngDataUrl(d.photo_url as string)),
   ]);
   const closingPhotoImages = closingPhotos
@@ -57,7 +65,21 @@ export async function generateCompactMenuPdf(
     doc.setLineWidth(0.2);
     doc.line(MARGIN, lineY, PAGE_WIDTH - MARGIN, lineY);
 
-    const qrSize = 12;
+    const parts = [restaurant.address, restaurant.hours, restaurant.phone].filter(Boolean);
+
+    if (!qrDataUrl) {
+      if (parts.length > 0) {
+        doc.setFont("Lato", "normal");
+        doc.setFontSize(6.5);
+        doc.setTextColor(130);
+        const lines = doc.splitTextToSize(parts.join("  ·  "), PAGE_WIDTH - MARGIN * 2);
+        doc.text(lines, PAGE_WIDTH / 2, lineY + 5, { align: "center" });
+      }
+      doc.setTextColor(0);
+      return;
+    }
+
+    const qrSize = QR_SIZE_MM[restaurant.pdf_qr_size];
     const qrX = PAGE_WIDTH - MARGIN - qrSize;
     const qrY = lineY + 3;
     lastFooterQrX = qrX;
@@ -73,7 +95,6 @@ export async function generateCompactMenuPdf(
     doc.setTextColor(140);
     doc.text("Puede haber cambios", qrX - 3, qrY + 8, { align: "right" });
 
-    const parts = [restaurant.address, restaurant.hours, restaurant.phone].filter(Boolean);
     if (parts.length > 0) {
       doc.setFont("Lato", "normal");
       doc.setFontSize(6.5);
@@ -387,7 +408,8 @@ export async function generateCompactMenuPdf(
   // El aviso de "puede haber cambios" solo tiene sentido si hay más de una
   // página; con una sola, lo borramos del pie ya dibujado en vez de no
   // dibujarlo nunca, porque hasta el final no sabemos cuántas páginas habrá.
-  if (doc.getNumberOfPages() === 1) {
+  // Si el QR está desactivado, ese aviso nunca se llegó a dibujar.
+  if (qrDataUrl && doc.getNumberOfPages() === 1) {
     doc.setPage(1);
     doc.setFillColor(255, 255, 255);
     doc.rect(lastFooterQrX - 45, lastFooterQrY + 5.5, 45, 5.5, "F");
