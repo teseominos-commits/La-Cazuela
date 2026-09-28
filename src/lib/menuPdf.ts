@@ -26,6 +26,8 @@ export async function generateMenuPdf(
   ]);
 
   let y = MARGIN;
+  let lastFooterQrX = 0;
+  let lastFooterQrY = 0;
 
   function drawFooter() {
     const lineY = PAGE_HEIGHT - MARGIN - FOOTER_RESERVED + 6;
@@ -36,6 +38,8 @@ export async function generateMenuPdf(
     const qrSize = 15;
     const qrX = PAGE_WIDTH - MARGIN - qrSize;
     const qrY = lineY + 4;
+    lastFooterQrX = qrX;
+    lastFooterQrY = qrY;
     doc.addImage(qrDataUrl, "PNG", qrX, qrY, qrSize, qrSize);
 
     const captionX = qrX - 4;
@@ -115,7 +119,15 @@ export async function generateMenuPdf(
     doc.setFontSize(9.5);
     const descLines = dish.description ? doc.splitTextToSize(dish.description, CONTENT_WIDTH - 4) : [];
     const hasAllergens = dish.allergens.length > 0;
-    return 5 + descLines.length * DISH_LINE_HEIGHT + (hasAllergens ? 4.5 : 0) + (dish.price_note ? 4 : 0) + 4;
+    const hasVegTag = dish.is_vegan || dish.is_vegetarian;
+    return (
+      5 +
+      descLines.length * DISH_LINE_HEIGHT +
+      (hasVegTag ? 4.2 : 0) +
+      (hasAllergens ? 4.5 : 0) +
+      (dish.price_note ? 4 : 0) +
+      4
+    );
   }
 
   function drawSeparator() {
@@ -208,6 +220,14 @@ export async function generateMenuPdf(
         y += descLines.length * DISH_LINE_HEIGHT;
       }
 
+      if (dish.is_vegan || dish.is_vegetarian) {
+        doc.setFont("Lato", "bold");
+        doc.setFontSize(7.5);
+        doc.setTextColor(16, 122, 87);
+        doc.text(dish.is_vegan ? "VEGANO" : "VEGETARIANO", MARGIN, y);
+        y += 4.2;
+      }
+
       if (hasAllergens) {
         const codes = dish.allergens.map((code) => ALLERGEN_INITIALS[code]).join(", ");
         doc.setFont("Lato", "italic");
@@ -243,6 +263,15 @@ export async function generateMenuPdf(
       y += 6.5;
     }
     drawFooter();
+  }
+
+  // El aviso de "puede haber cambios" solo tiene sentido si hay más de una
+  // página; con una sola, lo borramos del pie ya dibujado en vez de no
+  // dibujarlo nunca, porque hasta el final no sabemos cuántas páginas habrá.
+  if (doc.getNumberOfPages() === 1) {
+    doc.setPage(1);
+    doc.setFillColor(255, 255, 255);
+    doc.rect(lastFooterQrX - 70, lastFooterQrY + 6.5, 70, 7, "F");
   }
 
   return doc;

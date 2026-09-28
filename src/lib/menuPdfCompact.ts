@@ -47,6 +47,9 @@ export async function generateCompactMenuPdf(
     .map((dish, i) => ({ dish, image: photoResults[i] }))
     .filter((p): p is { dish: Dish; image: string } => Boolean(p.image));
 
+  let lastFooterQrX = 0;
+  let lastFooterQrY = 0;
+
   function drawFooter() {
     const lineY = PAGE_HEIGHT - MARGIN - FOOTER_RESERVED + 5;
     doc.setDrawColor(225);
@@ -56,6 +59,8 @@ export async function generateCompactMenuPdf(
     const qrSize = 12;
     const qrX = PAGE_WIDTH - MARGIN - qrSize;
     const qrY = lineY + 3;
+    lastFooterQrX = qrX;
+    lastFooterQrY = qrY;
     doc.addImage(qrDataUrl, "PNG", qrX, qrY, qrSize, qrSize);
 
     doc.setFont("Lato", "bold");
@@ -145,7 +150,15 @@ export async function generateCompactMenuPdf(
     doc.setFontSize(7.5);
     const descLines = dish.description ? doc.splitTextToSize(dish.description, COLUMN_WIDTH - 2) : [];
     const hasAllergens = dish.allergens.length > 0;
-    return 4 + descLines.length * DISH_LINE_HEIGHT + (hasAllergens ? 3.2 : 0) + (dish.price_note ? 3 : 0) + 2.5;
+    const hasVegTag = dish.is_vegan || dish.is_vegetarian;
+    return (
+      4 +
+      descLines.length * DISH_LINE_HEIGHT +
+      (hasVegTag ? 3 : 0) +
+      (hasAllergens ? 3.2 : 0) +
+      (dish.price_note ? 3 : 0) +
+      2.5
+    );
   }
 
   function drawSeparator() {
@@ -255,6 +268,13 @@ export async function generateCompactMenuPdf(
         doc.text(descLines, colX(), colY);
         colY += descLines.length * DISH_LINE_HEIGHT;
       }
+      if (dish.is_vegan || dish.is_vegetarian) {
+        doc.setFont("Lato", "bold");
+        doc.setFontSize(6);
+        doc.setTextColor(16, 122, 87);
+        doc.text(dish.is_vegan ? "VEGANO" : "VEGETARIANO", colX(), colY);
+        colY += 3;
+      }
       if (hasAllergens) {
         const codes = dish.allergens.map((code) => ALLERGEN_INITIALS[code]).join(", ");
         doc.setFont("Lato", "italic");
@@ -362,6 +382,15 @@ export async function generateCompactMenuPdf(
   }
 
   drawFooter();
+
+  // El aviso de "puede haber cambios" solo tiene sentido si hay más de una
+  // página; con una sola, lo borramos del pie ya dibujado en vez de no
+  // dibujarlo nunca, porque hasta el final no sabemos cuántas páginas habrá.
+  if (doc.getNumberOfPages() === 1) {
+    doc.setPage(1);
+    doc.setFillColor(255, 255, 255);
+    doc.rect(lastFooterQrX - 45, lastFooterQrY + 5.5, 45, 5.5, "F");
+  }
 
   return doc;
 }
