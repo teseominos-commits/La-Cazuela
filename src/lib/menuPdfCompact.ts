@@ -34,7 +34,7 @@ export async function generateCompactMenuPdf(
   const closingPhotos = orderedCategories
     .flatMap((c) => c.catDishes)
     .filter((d) => d.photo_url)
-    .slice(0, 2);
+    .slice(0, 4);
 
   const menuUrl = appUrl(restaurant.slug);
   const [, logo, qrDataUrl, ...photoResults] = await Promise.all([
@@ -307,35 +307,55 @@ export async function generateCompactMenuPdf(
     doc.setTextColor(0);
   }
 
-  // Bloque de cierre: logo grande y, si sobra sitio, fotos de platos.
-  // Solo se dibuja si hay hueco de verdad; si no cabe, se omite sin más.
-  const bigLogoSize = 26;
-  const closingMinNeeded = bigLogoSize + 8;
+  // Bloque de cierre: logo grande con el nombre del restaurante y, si sobra
+  // sitio, fotos de platos (hasta 4, en cuadrícula si son más de 2).
+  // Solo se dibuja lo que quepa de verdad; si no hay hueco, se omite sin más.
+  const bigLogoSize = 32;
+  doc.setFont("Playfair", "bold");
+  doc.setFontSize(11);
+  const nameLines = doc.splitTextToSize(restaurant.name, COLUMN_WIDTH - 6);
+  const nameHeight = nameLines.length * 4.5;
+  const closingMinNeeded = bigLogoSize + nameHeight + 10;
+
   if (logo && colBottom - colY >= closingMinNeeded) {
     colY += 6;
     const cx = colX() + COLUMN_WIDTH / 2;
     doc.addImage(logo, "PNG", cx - bigLogoSize / 2, colY, bigLogoSize, bigLogoSize);
-    colY += bigLogoSize + 5;
+    colY += bigLogoSize + 4;
+
+    doc.setFont("Playfair", "bold");
+    doc.setFontSize(11);
+    doc.setTextColor(20);
+    doc.text(nameLines, cx, colY, { align: "center" });
+    doc.setTextColor(0);
+    colY += nameHeight + 5;
 
     if (closingPhotoImages.length > 0) {
       const gap = 3;
-      const photoSize = Math.min(
-        (COLUMN_WIDTH - gap * (closingPhotoImages.length - 1)) / closingPhotoImages.length,
-        32,
-      );
-      const rowWidth = photoSize * closingPhotoImages.length + gap * (closingPhotoImages.length - 1);
-      const neededForPhotos = photoSize + 8;
+      const perRow = closingPhotoImages.length <= 2 ? closingPhotoImages.length : 2;
+      const rows: (typeof closingPhotoImages)[] = [];
+      for (let i = 0; i < closingPhotoImages.length; i += perRow) {
+        rows.push(closingPhotoImages.slice(i, i + perRow));
+      }
+      const photoSize = Math.min((COLUMN_WIDTH - gap * (perRow - 1)) / perRow, 32);
+      const rowHeight = photoSize + 8;
+      const neededForPhotos = rowHeight * rows.length;
+
       if (colBottom - colY >= neededForPhotos) {
-        let px = colX() + (COLUMN_WIDTH - rowWidth) / 2;
-        for (const { dish, image } of closingPhotoImages) {
-          doc.addImage(image, "PNG", px, colY, photoSize, photoSize);
-          doc.setFont("Lato", "normal");
-          doc.setFontSize(6);
-          doc.setTextColor(110);
-          const caption = doc.splitTextToSize(dish.name, photoSize);
-          doc.text(caption, px + photoSize / 2, colY + photoSize + 3, { align: "center" });
-          doc.setTextColor(0);
-          px += photoSize + gap;
+        for (const row of rows) {
+          const rowWidth = photoSize * row.length + gap * (row.length - 1);
+          let px = colX() + (COLUMN_WIDTH - rowWidth) / 2;
+          for (const { dish, image } of row) {
+            doc.addImage(image, "PNG", px, colY, photoSize, photoSize);
+            doc.setFont("Lato", "normal");
+            doc.setFontSize(6);
+            doc.setTextColor(110);
+            const caption = doc.splitTextToSize(dish.name, photoSize);
+            doc.text(caption, px + photoSize / 2, colY + photoSize + 3, { align: "center" });
+            doc.setTextColor(0);
+            px += photoSize + gap;
+          }
+          colY += rowHeight;
         }
       }
     }
