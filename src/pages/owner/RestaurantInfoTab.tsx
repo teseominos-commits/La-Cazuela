@@ -54,37 +54,6 @@ export function RestaurantInfoTab({
 
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-      <div className="flex min-w-0 flex-col items-center gap-3 rounded-2xl border border-black/10 bg-white p-5">
-        <h3 className="font-semibold">Tu carta para imprimir</h3>
-        <div className="w-40 rounded-md border border-neutral-200 bg-white p-3 shadow-sm">
-          <div className="mx-auto mb-2 h-2 w-3/4 rounded-sm bg-neutral-800" />
-          <div className="mx-auto mb-3 h-1.5 w-1/2 rounded-sm bg-neutral-300" />
-          <div className="mb-2 h-1.5 w-1/3 rounded-sm bg-neutral-400" />
-          {[...Array(3)].map((_, i) => (
-            <div key={i} className="mb-1.5 flex items-center justify-between">
-              <div className="h-1 w-3/5 rounded-sm bg-neutral-200" />
-              <div className="h-1 w-1/6 rounded-sm bg-neutral-300" />
-            </div>
-          ))}
-          <div className="mb-2 mt-3 h-1.5 w-2/5 rounded-sm bg-neutral-400" />
-          {[...Array(2)].map((_, i) => (
-            <div key={i} className="mb-1.5 flex items-center justify-between">
-              <div className="h-1 w-3/5 rounded-sm bg-neutral-200" />
-              <div className="h-1 w-1/6 rounded-sm bg-neutral-300" />
-            </div>
-          ))}
-        </div>
-        <p className="max-w-full text-center text-xs text-neutral-500">
-          Un PDF listo para imprimir con tu carta completa por categorías.
-        </p>
-        <Button
-          size="sm"
-          onClick={() => downloadMenuPdf(restaurant, categories, dishes)}
-        >
-          Descargar carta en PDF
-        </Button>
-      </div>
-
       <div className="w-full max-w-lg space-y-3 rounded-2xl border border-black/10 bg-white p-5 min-w-0">
         <div className="flex items-center gap-3">
           {restaurant.logo_url ? (
@@ -124,6 +93,37 @@ export function RestaurantInfoTab({
         </div>
         <Button onClick={save} disabled={saving}>
           {saving ? "Guardando…" : "Guardar cambios"}
+        </Button>
+      </div>
+
+      <div className="flex min-w-0 flex-col items-center gap-3 rounded-2xl border border-black/10 bg-white p-5">
+        <h3 className="font-semibold">Tu carta para imprimir</h3>
+        <div className="w-40 rounded-md border border-neutral-200 bg-white p-3 shadow-sm">
+          <div className="mx-auto mb-2 h-2 w-3/4 rounded-sm bg-neutral-800" />
+          <div className="mx-auto mb-3 h-1.5 w-1/2 rounded-sm bg-neutral-300" />
+          <div className="mb-2 h-1.5 w-1/3 rounded-sm bg-neutral-400" />
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="mb-1.5 flex items-center justify-between">
+              <div className="h-1 w-3/5 rounded-sm bg-neutral-200" />
+              <div className="h-1 w-1/6 rounded-sm bg-neutral-300" />
+            </div>
+          ))}
+          <div className="mb-2 mt-3 h-1.5 w-2/5 rounded-sm bg-neutral-400" />
+          {[...Array(2)].map((_, i) => (
+            <div key={i} className="mb-1.5 flex items-center justify-between">
+              <div className="h-1 w-3/5 rounded-sm bg-neutral-200" />
+              <div className="h-1 w-1/6 rounded-sm bg-neutral-300" />
+            </div>
+          ))}
+        </div>
+        <p className="max-w-full text-center text-xs text-neutral-500">
+          Un PDF listo para imprimir con tu carta completa por categorías.
+        </p>
+        <Button
+          size="sm"
+          onClick={() => downloadMenuPdf(restaurant, categories, dishes)}
+        >
+          Descargar carta en PDF
         </Button>
       </div>
 
