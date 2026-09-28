@@ -33,15 +33,14 @@ async function fetchAsBase64(url: string): Promise<string> {
 }
 
 async function loadLogoAsPngDataUrl(logoUrl: string): Promise<string | null> {
-  if (/\.svg(\?|$)/i.test(logoUrl)) return null;
   return new Promise((resolve) => {
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.onload = () => {
       try {
         const canvas = document.createElement("canvas");
-        canvas.width = img.naturalWidth;
-        canvas.height = img.naturalHeight;
+        canvas.width = img.naturalWidth || 200;
+        canvas.height = img.naturalHeight || 200;
         const ctx = canvas.getContext("2d");
         if (!ctx) return resolve(null);
         ctx.drawImage(img, 0, 0);
@@ -162,6 +161,41 @@ export async function generateMenuPdf(
 
   const usedAllergens = new Set<AllergenCode>();
   let categoriesRendered = 0;
+  const SEPARATOR_HEIGHT = 8;
+  const TITLE_HEIGHT = 9;
+  const DISH_LINE_HEIGHT = 4;
+
+  function measureDishBlockHeight(dish: Dish) {
+    doc.setFont("Lato", "normal");
+    doc.setFontSize(9.5);
+    const descLines = dish.description ? doc.splitTextToSize(dish.description, CONTENT_WIDTH - 4) : [];
+    const hasAllergens = dish.allergens.length > 0;
+    return 5 + descLines.length * DISH_LINE_HEIGHT + (hasAllergens ? 4.5 : 0) + (dish.price_note ? 4 : 0) + 4;
+  }
+
+  function drawSeparator() {
+    const centerX = PAGE_WIDTH / 2;
+    const halfWidth = 9;
+    const halfHeight = 1.6;
+    doc.setDrawColor(...ACCENT);
+    doc.setFillColor(...ACCENT);
+    doc.setLineWidth(0.3);
+    doc.line(MARGIN, y, centerX - halfWidth - 2, y);
+    doc.line(centerX + halfWidth + 2, y, PAGE_WIDTH - MARGIN, y);
+    doc.lines(
+      [
+        [halfWidth, -halfHeight],
+        [halfWidth, halfHeight],
+        [-halfWidth, halfHeight],
+        [-halfWidth, -halfHeight],
+      ],
+      centerX - halfWidth,
+      y,
+      [1, 1],
+      "FD",
+      true,
+    );
+  }
 
   for (const category of categories) {
     const catDishes = dishes
@@ -169,30 +203,22 @@ export async function generateMenuPdf(
       .sort((a, b) => a.sort_order - b.sort_order);
     if (catDishes.length === 0) continue;
 
+    const categoryContentHeight =
+      TITLE_HEIGHT + catDishes.reduce((sum, d) => sum + measureDishBlockHeight(d) + 3.5, 0);
+    const fullPageCapacity = PAGE_HEIGHT - MARGIN - FOOTER_RESERVED - MARGIN;
+
     if (categoriesRendered > 0) {
-      ensureSpace(10);
-      const centerX = PAGE_WIDTH / 2;
-      const halfWidth = 9;
-      const halfHeight = 1.6;
-      doc.setDrawColor(...ACCENT);
-      doc.setFillColor(...ACCENT);
-      doc.setLineWidth(0.3);
-      doc.line(MARGIN, y, centerX - halfWidth - 2, y);
-      doc.line(centerX + halfWidth + 2, y, PAGE_WIDTH - MARGIN, y);
-      doc.lines(
-        [
-          [halfWidth, -halfHeight],
-          [halfWidth, halfHeight],
-          [-halfWidth, halfHeight],
-          [-halfWidth, -halfHeight],
-        ],
-        centerX - halfWidth,
-        y,
-        [1, 1],
-        "FD",
-        true,
-      );
-      y += 8;
+      const remaining = PAGE_HEIGHT - MARGIN - FOOTER_RESERVED - y;
+      if (SEPARATOR_HEIGHT + categoryContentHeight > remaining && categoryContentHeight <= fullPageCapacity) {
+        // La categoría entera no cabe en lo que queda de página, pero sí en una
+        // página nueva: la empezamos limpia en vez de partirla por la mitad.
+        drawFooter();
+        doc.addPage();
+        y = MARGIN;
+      } else {
+        drawSeparator();
+        y += SEPARATOR_HEIGHT;
+      }
     }
     categoriesRendered++;
 
@@ -201,7 +227,7 @@ export async function generateMenuPdf(
     doc.setFontSize(15);
     doc.setTextColor(...ACCENT);
     doc.text(category.name.toUpperCase(), MARGIN, y);
-    y += 9;
+    y += TITLE_HEIGHT;
 
     for (const dish of catDishes) {
       doc.setFont("Lato", "normal");
@@ -210,9 +236,7 @@ export async function generateMenuPdf(
       const hasAllergens = dish.allergens.length > 0;
       dish.allergens.forEach((a) => usedAllergens.add(a));
 
-      const lineHeight = 4;
-      const blockHeight =
-        5 + descLines.length * lineHeight + (hasAllergens ? 4.5 : 0) + (dish.price_note ? 4 : 0) + 4;
+      const blockHeight = measureDishBlockHeight(dish);
       ensureSpace(blockHeight);
 
       doc.setFont("Lato", "bold");
@@ -236,7 +260,7 @@ export async function generateMenuPdf(
         doc.setFontSize(9.5);
         doc.setTextColor(100);
         doc.text(descLines, MARGIN, y);
-        y += descLines.length * lineHeight;
+        y += descLines.length * DISH_LINE_HEIGHT;
       }
 
       if (hasAllergens) {
