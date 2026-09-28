@@ -1,11 +1,27 @@
 import type { jsPDF } from "jspdf";
+import { THEMES } from "../themes";
+import type { ThemeKey } from "../types";
 
 import playfairBoldUrl from "../assets/fonts/PlayfairDisplay-Bold.ttf";
 import latoRegularUrl from "../assets/fonts/Lato-Regular.ttf";
 import latoItalicUrl from "../assets/fonts/Lato-Italic.ttf";
 import latoBoldUrl from "../assets/fonts/Lato-Bold.ttf";
 
-export const ACCENT: [number, number, number] = [122, 59, 46];
+function hexToRgb(hex: string): [number, number, number] {
+  const clean = hex.replace("#", "");
+  const r = parseInt(clean.slice(0, 2), 16);
+  const g = parseInt(clean.slice(2, 4), 16);
+  const b = parseInt(clean.slice(4, 6), 16);
+  return [r, g, b];
+}
+
+// Usamos siempre accentDark (no accent) porque el PDF se imprime sobre
+// fondo blanco: algunos temas tienen un accent claro pensado para fondos
+// oscuros o de color, que perdería legibilidad como texto en el PDF.
+export function getPdfAccentColor(theme: ThemeKey): [number, number, number] {
+  const palette = THEMES[theme] ?? THEMES.mediterraneo_calido;
+  return hexToRgb(palette.accentDark);
+}
 
 export function formatPrice(price: number) {
   return price.toFixed(2).replace(".", ",") + " €";

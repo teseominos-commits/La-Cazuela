@@ -2,7 +2,7 @@ import { jsPDF } from "jspdf";
 import QRCode from "qrcode";
 import { ALLERGEN_INITIALS } from "../components/AllergenIcon";
 import { appUrl } from "./url";
-import { ACCENT, formatPrice, loadImageAsPngDataUrl, loadPdfFonts } from "./pdfShared";
+import { formatPrice, getPdfAccentColor, loadImageAsPngDataUrl, loadPdfFonts } from "./pdfShared";
 import { ALLERGEN_LABELS, type AllergenCode, type Category, type Dish, type Restaurant } from "../types";
 
 const PAGE_WIDTH = 210;
@@ -21,6 +21,7 @@ export async function generateCompactMenuPdf(
   dishes: Dish[],
 ) {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const ACCENT = getPdfAccentColor(restaurant.theme);
 
   const orderedCategories = categories
     .map((category) => ({
