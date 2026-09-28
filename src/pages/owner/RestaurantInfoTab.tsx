@@ -32,6 +32,7 @@ export function RestaurantInfoTab({
   const [saving, setSaving] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState<"large" | "compact" | null>(null);
+  const [savingQr, setSavingQr] = useState(false);
 
   async function handleDownloadPdf() {
     setGeneratingPdf("large");
@@ -55,6 +56,16 @@ export function RestaurantInfoTab({
     setSaving(true);
     await supabase.from("restaurants").update(form).eq("id", restaurant.id);
     setSaving(false);
+    onChanged();
+  }
+
+  async function saveQrPrefs() {
+    setSavingQr(true);
+    await supabase
+      .from("restaurants")
+      .update({ pdf_qr_enabled: form.pdf_qr_enabled, pdf_qr_size: form.pdf_qr_size })
+      .eq("id", restaurant.id);
+    setSavingQr(false);
     onChanged();
   }
 
@@ -112,28 +123,6 @@ export function RestaurantInfoTab({
         <div>
           <Label>Texto del pie de página</Label>
           <Textarea rows={2} value={form.footer_text} onChange={(e) => setForm((f) => ({ ...f, footer_text: e.target.value }))} />
-        </div>
-        <div className="rounded-lg border border-black/10 p-3">
-          <Label>Código QR en la carta impresa (PDF)</Label>
-          <label className="mt-1 flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={form.pdf_qr_enabled}
-              onChange={(e) => setForm((f) => ({ ...f, pdf_qr_enabled: e.target.checked }))}
-            />
-            Mostrar código QR
-          </label>
-          {form.pdf_qr_enabled && (
-            <select
-              className="mt-2 w-full rounded-lg border border-black/15 px-3 py-2 text-sm"
-              value={form.pdf_qr_size}
-              onChange={(e) => setForm((f) => ({ ...f, pdf_qr_size: e.target.value as PdfQrSize }))}
-            >
-              <option value="pequeno">Pequeño</option>
-              <option value="mediano">Mediano</option>
-              <option value="grande">Grande</option>
-            </select>
-          )}
         </div>
         <Button onClick={save} disabled={saving}>
           {saving ? "Guardando…" : "Guardar cambios"}
@@ -199,6 +188,32 @@ export function RestaurantInfoTab({
               {generatingPdf === "compact" ? "Generando…" : "Descargar carta pequeña"}
             </Button>
           </div>
+        </div>
+
+        <div className="w-full max-w-xs rounded-lg border border-black/10 p-3">
+          <Label>Código QR en la carta impresa</Label>
+          <label className="mt-1 flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={form.pdf_qr_enabled}
+              onChange={(e) => setForm((f) => ({ ...f, pdf_qr_enabled: e.target.checked }))}
+            />
+            Mostrar código QR
+          </label>
+          {form.pdf_qr_enabled && (
+            <select
+              className="mt-2 w-full rounded-lg border border-black/15 px-3 py-2 text-sm"
+              value={form.pdf_qr_size}
+              onChange={(e) => setForm((f) => ({ ...f, pdf_qr_size: e.target.value as PdfQrSize }))}
+            >
+              <option value="pequeno">Pequeño</option>
+              <option value="mediano">Mediano</option>
+              <option value="grande">Grande</option>
+            </select>
+          )}
+          <Button size="sm" variant="secondary" className="mt-2 w-full" onClick={saveQrPrefs} disabled={savingQr}>
+            {savingQr ? "Guardando…" : "Guardar preferencia"}
+          </Button>
         </div>
       </div>
 
