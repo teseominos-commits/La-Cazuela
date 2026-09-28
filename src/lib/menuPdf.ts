@@ -72,21 +72,21 @@ export async function generateMenuPdf(
   }
 
   // Cabecera: logo junto al nombre (misma línea) si existe, si no, nombre centrado solo
-  const headerFontSize = 26;
+  const headerFontSize = 34;
   doc.setFont("Playfair", "bold");
   doc.setFontSize(headerFontSize);
   doc.setTextColor(20);
   if (logo) {
-    const logoSize = 16;
+    const logoSize = 22;
     const nameWidth = doc.getTextWidth(restaurant.name);
-    const totalWidth = logoSize + 4 + nameWidth;
+    const totalWidth = logoSize + 5 + nameWidth;
     const startX = (PAGE_WIDTH - totalWidth) / 2;
-    doc.addImage(logo, "PNG", startX, y - logoSize + 3, logoSize, logoSize);
-    doc.text(restaurant.name, startX + logoSize + 4, y);
+    doc.addImage(logo, "PNG", startX, y - logoSize + 4, logoSize, logoSize);
+    doc.text(restaurant.name, startX + logoSize + 5, y);
   } else {
     doc.text(restaurant.name, PAGE_WIDTH / 2, y, { align: "center" });
   }
-  y += 8;
+  y += 10;
 
   if (restaurant.tagline) {
     doc.setFont("Lato", "italic");

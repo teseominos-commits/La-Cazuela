@@ -80,20 +80,20 @@ export async function generateCompactMenuPdf(
 
   // Cabecera: solo en la primera página
   let y = MARGIN;
-  const headerLogoSize = 12;
+  const headerLogoSize = 16;
   doc.setFont("Playfair", "bold");
-  doc.setFontSize(19);
+  doc.setFontSize(24);
   doc.setTextColor(20);
   if (logo) {
     const nameWidth = doc.getTextWidth(restaurant.name);
-    const totalWidth = headerLogoSize + 3 + nameWidth;
+    const totalWidth = headerLogoSize + 4 + nameWidth;
     const startX = (PAGE_WIDTH - totalWidth) / 2;
-    doc.addImage(logo, "PNG", startX, y - headerLogoSize + 2, headerLogoSize, headerLogoSize);
-    doc.text(restaurant.name, startX + headerLogoSize + 3, y);
+    doc.addImage(logo, "PNG", startX, y - headerLogoSize + 3, headerLogoSize, headerLogoSize);
+    doc.text(restaurant.name, startX + headerLogoSize + 4, y);
   } else {
     doc.text(restaurant.name, PAGE_WIDTH / 2, y, { align: "center" });
   }
-  y += 6;
+  y += 7;
 
   if (restaurant.tagline) {
     doc.setFont("Lato", "italic");
