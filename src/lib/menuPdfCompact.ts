@@ -114,6 +114,7 @@ export async function generateCompactMenuPdf(
   let currentCol = 0;
   let colTop = y;
   let colY = colTop;
+  let col1UsedOnPage = false;
   const colBottom = PAGE_HEIGHT - MARGIN - FOOTER_RESERVED;
 
   function colX() {
@@ -126,12 +127,14 @@ export async function generateCompactMenuPdf(
     currentCol = 0;
     colTop = MARGIN;
     colY = colTop;
+    col1UsedOnPage = false;
   }
 
   function moveToNextColumn() {
     if (currentCol === 0) {
       currentCol = 1;
       colY = colTop;
+      col1UsedOnPage = true;
     } else {
       newPage();
     }
@@ -173,16 +176,27 @@ export async function generateCompactMenuPdf(
   const categoryHeights = orderedCategories.map(({ catDishes }) =>
     TITLE_HEIGHT + catDishes.reduce((sum, d) => sum + measureDishHeight(d) + 2, 0),
   );
-  const totalContentHeight =
-    categoryHeights.reduce((a, b) => a + b, 0) + SEPARATOR_HEIGHT * Math.max(0, categoryHeights.length - 1);
-  const targetFirstColumnHeight = totalContentHeight / 2;
 
   let categoriesRendered = 0;
+  // Objetivo de reparto para la columna izquierda actual: se recalcula cada
+  // vez que empezamos una columna izquierda nueva (página 1, página 2...),
+  // usando solo el contenido que queda por colocar desde ese punto. Así cada
+  // página reparte su propio contenido en las dos columnas, en vez de fiarse
+  // de un único reparto calculado una vez para todo el documento (lo que
+  // dejaba la segunda columna de las páginas siguientes vacía).
+  let currentColumnTarget = 0;
 
   for (let i = 0; i < orderedCategories.length; i++) {
     const { category, catDishes } = orderedCategories[i];
     const categoryHeight = categoryHeights[i];
     const fullColCapacity = colBottom - colTop;
+
+    if (currentCol === 0 && colY === colTop) {
+      const remainingCount = categoryHeights.length - i;
+      const remainingHeight =
+        categoryHeights.slice(i).reduce((a, b) => a + b, 0) + SEPARATOR_HEIGHT * Math.max(0, remainingCount - 1);
+      currentColumnTarget = remainingHeight / 2;
+    }
 
     if (categoriesRendered > 0) {
       const remaining = colBottom - colY;
@@ -190,7 +204,7 @@ export async function generateCompactMenuPdf(
       const wouldUnbalance =
         currentCol === 0 &&
         columnSoFar > 0 &&
-        columnSoFar + SEPARATOR_HEIGHT + categoryHeight > targetFirstColumnHeight;
+        columnSoFar + SEPARATOR_HEIGHT + categoryHeight > currentColumnTarget;
       if (SEPARATOR_HEIGHT + categoryHeight > remaining && categoryHeight <= fullColCapacity) {
         moveToNextColumn();
       } else if (wouldUnbalance) {
@@ -252,6 +266,14 @@ export async function generateCompactMenuPdf(
       doc.setTextColor(0);
       colY += 2;
     }
+  }
+
+  // Si la columna derecha de la página actual se quedó sin usar (el resto del
+  // contenido cupo entero en la izquierda), pasamos la leyenda/bloque de
+  // cierre a la derecha en vez de amontonarlo todo debajo, para no dejar
+  // media página en blanco.
+  if (currentCol === 0 && colY > colTop && !col1UsedOnPage) {
+    moveToNextColumn();
   }
 
   if (usedAllergens.size > 0) {
