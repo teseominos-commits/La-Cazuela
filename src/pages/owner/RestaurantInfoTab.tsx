@@ -3,6 +3,7 @@ import { supabase } from "../../lib/supabase";
 import { appUrl } from "../../lib/url";
 import { fileExtension } from "../../lib/files";
 import { downloadMenuPdf } from "../../lib/menuPdf";
+import { downloadCompactMenuPdf } from "../../lib/menuPdfCompact";
 import { Button } from "../../components/ui/button";
 import { Input, Label, Textarea } from "../../components/ui/input";
 import { QrDownload } from "../../components/QrDownload";
@@ -28,14 +29,23 @@ export function RestaurantInfoTab({
   });
   const [saving, setSaving] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
-  const [generatingPdf, setGeneratingPdf] = useState(false);
+  const [generatingPdf, setGeneratingPdf] = useState<"large" | "compact" | null>(null);
 
   async function handleDownloadPdf() {
-    setGeneratingPdf(true);
+    setGeneratingPdf("large");
     try {
       await downloadMenuPdf(restaurant, categories, dishes);
     } finally {
-      setGeneratingPdf(false);
+      setGeneratingPdf(null);
+    }
+  }
+
+  async function handleDownloadCompactPdf() {
+    setGeneratingPdf("compact");
+    try {
+      await downloadCompactMenuPdf(restaurant, categories, dishes);
+    } finally {
+      setGeneratingPdf(null);
     }
   }
 
@@ -106,32 +116,66 @@ export function RestaurantInfoTab({
         </Button>
       </div>
 
-      <div className="flex min-w-0 flex-col items-center gap-3 rounded-2xl border border-black/10 bg-white p-5">
+      <div className="flex min-w-0 flex-col items-center gap-4 rounded-2xl border border-black/10 bg-white p-5">
         <h3 className="font-semibold">Tu carta para imprimir</h3>
-        <div className="w-40 rounded-md border border-neutral-200 bg-white p-3 shadow-sm">
-          <div className="mx-auto mb-2 h-2 w-3/4 rounded-sm bg-neutral-800" />
-          <div className="mx-auto mb-3 h-1.5 w-1/2 rounded-sm bg-neutral-300" />
-          <div className="mb-2 h-1.5 w-1/3 rounded-sm bg-neutral-400" />
-          {[...Array(3)].map((_, i) => (
-            <div key={i} className="mb-1.5 flex items-center justify-between">
-              <div className="h-1 w-3/5 rounded-sm bg-neutral-200" />
-              <div className="h-1 w-1/6 rounded-sm bg-neutral-300" />
+        <div className="flex flex-wrap justify-center gap-6">
+          <div className="flex flex-col items-center gap-2">
+            <div className="w-28 rounded-md border border-neutral-200 bg-white p-2 shadow-sm">
+              <div className="mx-auto mb-1.5 h-1.5 w-3/4 rounded-sm bg-neutral-800" />
+              <div className="mx-auto mb-2 h-1 w-1/2 rounded-sm bg-neutral-300" />
+              <div className="mb-1 h-1 w-1/3 rounded-sm bg-neutral-400" />
+              {[...Array(2)].map((_, i) => (
+                <div key={i} className="mb-1 flex items-center justify-between">
+                  <div className="h-0.5 w-3/5 rounded-sm bg-neutral-200" />
+                  <div className="h-0.5 w-1/6 rounded-sm bg-neutral-300" />
+                </div>
+              ))}
+              <div className="mb-1 mt-2 h-1 w-2/5 rounded-sm bg-neutral-400" />
+              {[...Array(2)].map((_, i) => (
+                <div key={i} className="mb-1 flex items-center justify-between">
+                  <div className="h-0.5 w-3/5 rounded-sm bg-neutral-200" />
+                  <div className="h-0.5 w-1/6 rounded-sm bg-neutral-300" />
+                </div>
+              ))}
             </div>
-          ))}
-          <div className="mb-2 mt-3 h-1.5 w-2/5 rounded-sm bg-neutral-400" />
-          {[...Array(2)].map((_, i) => (
-            <div key={i} className="mb-1.5 flex items-center justify-between">
-              <div className="h-1 w-3/5 rounded-sm bg-neutral-200" />
-              <div className="h-1 w-1/6 rounded-sm bg-neutral-300" />
+            <p className="text-center text-[11px] text-neutral-500">
+              Carta grande
+              <br />
+              <span className="text-neutral-400">1 columna, más espaciosa</span>
+            </p>
+            <Button size="sm" onClick={handleDownloadPdf} disabled={generatingPdf !== null}>
+              {generatingPdf === "large" ? "Generando…" : "Descargar carta grande"}
+            </Button>
+          </div>
+
+          <div className="flex flex-col items-center gap-2">
+            <div className="w-28 rounded-md border border-neutral-200 bg-white p-2 shadow-sm">
+              <div className="mx-auto mb-1.5 h-1.5 w-3/4 rounded-sm bg-neutral-800" />
+              <div className="mx-auto mb-2 h-1 w-1/2 rounded-sm bg-neutral-300" />
+              <div className="flex gap-1.5">
+                {[0, 1].map((col) => (
+                  <div key={col} className="flex-1">
+                    <div className="mb-0.5 h-0.5 w-1/3 rounded-sm bg-neutral-400" />
+                    {[...Array(2)].map((_, i) => (
+                      <div key={i} className="mb-0.5 flex items-center justify-between">
+                        <div className="h-0.5 w-3/5 rounded-sm bg-neutral-200" />
+                        <div className="h-0.5 w-1/6 rounded-sm bg-neutral-300" />
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
             </div>
-          ))}
+            <p className="text-center text-[11px] text-neutral-500">
+              Carta pequeña
+              <br />
+              <span className="text-neutral-400">2 columnas, compacta</span>
+            </p>
+            <Button size="sm" onClick={handleDownloadCompactPdf} disabled={generatingPdf !== null}>
+              {generatingPdf === "compact" ? "Generando…" : "Descargar carta pequeña"}
+            </Button>
+          </div>
         </div>
-        <p className="max-w-full text-center text-xs text-neutral-500">
-          Un PDF listo para imprimir con tu carta completa por categorías.
-        </p>
-        <Button size="sm" onClick={handleDownloadPdf} disabled={generatingPdf}>
-          {generatingPdf ? "Generando…" : "Descargar carta en PDF"}
-        </Button>
       </div>
 
       <div className="flex min-w-0 flex-col items-center gap-3 rounded-2xl border border-black/10 bg-white p-5">

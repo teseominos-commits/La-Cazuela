@@ -2,57 +2,14 @@ import { jsPDF } from "jspdf";
 import QRCode from "qrcode";
 import { ALLERGEN_INITIALS } from "../components/AllergenIcon";
 import { appUrl } from "./url";
+import { ACCENT, formatPrice, loadImageAsPngDataUrl, loadPdfFonts } from "./pdfShared";
 import { ALLERGEN_LABELS, type AllergenCode, type Category, type Dish, type Restaurant } from "../types";
-
-import playfairBoldUrl from "../assets/fonts/PlayfairDisplay-Bold.ttf";
-import latoRegularUrl from "../assets/fonts/Lato-Regular.ttf";
-import latoItalicUrl from "../assets/fonts/Lato-Italic.ttf";
-import latoBoldUrl from "../assets/fonts/Lato-Bold.ttf";
 
 const PAGE_WIDTH = 210;
 const PAGE_HEIGHT = 297;
 const MARGIN = 20;
 const CONTENT_WIDTH = PAGE_WIDTH - MARGIN * 2;
 const FOOTER_RESERVED = 26;
-const ACCENT: [number, number, number] = [122, 59, 46];
-
-function formatPrice(price: number) {
-  return price.toFixed(2).replace(".", ",") + " €";
-}
-
-async function fetchAsBase64(url: string): Promise<string> {
-  const res = await fetch(url);
-  const buffer = await res.arrayBuffer();
-  const bytes = new Uint8Array(buffer);
-  let binary = "";
-  const chunkSize = 0x8000;
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
-  }
-  return btoa(binary);
-}
-
-async function loadLogoAsPngDataUrl(logoUrl: string): Promise<string | null> {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => {
-      try {
-        const canvas = document.createElement("canvas");
-        canvas.width = img.naturalWidth || 200;
-        canvas.height = img.naturalHeight || 200;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) return resolve(null);
-        ctx.drawImage(img, 0, 0);
-        resolve(canvas.toDataURL("image/png"));
-      } catch {
-        resolve(null);
-      }
-    };
-    img.onerror = () => resolve(null);
-    img.src = logoUrl;
-  });
-}
 
 export async function generateMenuPdf(
   restaurant: Restaurant,
@@ -62,23 +19,11 @@ export async function generateMenuPdf(
   const doc = new jsPDF({ unit: "mm", format: "a4" });
 
   const menuUrl = appUrl(restaurant.slug);
-  const [playfairBold, latoRegular, latoItalic, latoBold, logo, qrDataUrl] = await Promise.all([
-    fetchAsBase64(playfairBoldUrl),
-    fetchAsBase64(latoRegularUrl),
-    fetchAsBase64(latoItalicUrl),
-    fetchAsBase64(latoBoldUrl),
-    restaurant.logo_url ? loadLogoAsPngDataUrl(restaurant.logo_url) : Promise.resolve(null),
+  const [, logo, qrDataUrl] = await Promise.all([
+    loadPdfFonts(doc),
+    restaurant.logo_url ? loadImageAsPngDataUrl(restaurant.logo_url) : Promise.resolve(null),
     QRCode.toDataURL(menuUrl, { width: 200, margin: 1, color: { dark: "#1c1c1c", light: "#ffffff" } }),
   ]);
-
-  doc.addFileToVFS("PlayfairDisplay-Bold.ttf", playfairBold);
-  doc.addFont("PlayfairDisplay-Bold.ttf", "Playfair", "bold");
-  doc.addFileToVFS("Lato-Regular.ttf", latoRegular);
-  doc.addFont("Lato-Regular.ttf", "Lato", "normal");
-  doc.addFileToVFS("Lato-Italic.ttf", latoItalic);
-  doc.addFont("Lato-Italic.ttf", "Lato", "italic");
-  doc.addFileToVFS("Lato-Bold.ttf", latoBold);
-  doc.addFont("Lato-Bold.ttf", "Lato", "bold");
 
   let y = MARGIN;
 
