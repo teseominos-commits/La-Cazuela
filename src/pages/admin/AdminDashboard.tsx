@@ -3,8 +3,9 @@ import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../../lib/supabase";
 import { Button } from "../../components/ui/button";
 import { Input, Label } from "../../components/ui/input";
+import { CategoryManager } from "../../components/CategoryManager";
 import { THEMES } from "../../themes";
-import type { Restaurant, ThemeKey } from "../../types";
+import type { Category, Dish, Restaurant, ThemeKey } from "../../types";
 import AdminLogin from "./AdminLogin";
 
 function slugify(name: string) {
@@ -23,6 +24,10 @@ export default function AdminDashboard() {
   const [visits, setVisits] = useState<Record<string, number>>({});
   const [form, setForm] = useState({ name: "", owner_email: "", theme: "mediterraneo_calido" as ThemeKey });
   const [creating, setCreating] = useState(false);
+  const [expandedCategoriesId, setExpandedCategoriesId] = useState<string | null>(null);
+  const [categoriesByRestaurant, setCategoriesByRestaurant] = useState<Category[]>([]);
+  const [dishesByRestaurant, setDishesByRestaurant] = useState<Dish[]>([]);
+  const [loadingCategories, setLoadingCategories] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
@@ -49,6 +54,17 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (session?.user) load();
   }, [session, load]);
+
+  const loadCategories = useCallback(async (restaurantId: string) => {
+    setLoadingCategories(true);
+    const [{ data: cats }, { data: ds }] = await Promise.all([
+      supabase.from("categories").select("*").eq("restaurant_id", restaurantId).order("sort_order"),
+      supabase.from("dishes").select("*").eq("restaurant_id", restaurantId),
+    ]);
+    setCategoriesByRestaurant((cats as Category[]) ?? []);
+    setDishesByRestaurant((ds as Dish[]) ?? []);
+    setLoadingCategories(false);
+  }, []);
 
   if (session === undefined || (session && isAdmin === null)) return null;
   if (!session) return <AdminLogin />;
@@ -88,6 +104,15 @@ export default function AdminDashboard() {
   async function changeTheme(r: Restaurant, theme: ThemeKey) {
     await supabase.from("restaurants").update({ theme }).eq("id", r.id);
     load();
+  }
+
+  function toggleCategories(r: Restaurant) {
+    if (expandedCategoriesId === r.id) {
+      setExpandedCategoriesId(null);
+      return;
+    }
+    setExpandedCategoriesId(r.id);
+    loadCategories(r.id);
   }
 
   return (
@@ -131,41 +156,60 @@ export default function AdminDashboard() {
 
       <div className="space-y-2">
         {restaurants.map((r) => (
-          <div key={r.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-black/10 bg-white p-3">
-            <div className="min-w-[160px]">
-              <p className="font-medium">{r.name}</p>
-              <a
-                href={`/${r.slug}`}
-                target="_blank"
-                rel="noreferrer"
-                className="text-xs text-[var(--color-accent)] underline"
+          <div key={r.id} className="rounded-xl border border-black/10 bg-white p-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="min-w-[160px]">
+                <p className="font-medium">{r.name}</p>
+                <a
+                  href={`/${r.slug}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs text-[var(--color-accent)] underline"
+                >
+                  /{r.slug}
+                </a>
+              </div>
+              <span
+                className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                  r.status === "active" ? "bg-emerald-100 text-emerald-700" : "bg-neutral-200 text-neutral-600"
+                }`}
               >
-                /{r.slug}
-              </a>
+                {r.status === "active" ? "Activo" : "Pausado"}
+              </span>
+              <span className="text-xs text-neutral-500">Plan {r.plan}</span>
+              <span className="text-xs text-neutral-500">{visits[r.id] ?? 0} visitas totales</span>
+              <select
+                className="rounded-lg border border-black/15 px-2 py-1 text-xs"
+                value={r.theme}
+                onChange={(e) => changeTheme(r, e.target.value as ThemeKey)}
+              >
+                {Object.entries(THEMES).map(([key, t]) => (
+                  <option key={key} value={key}>
+                    {t.label}
+                  </option>
+                ))}
+              </select>
+              <Button size="sm" variant="secondary" onClick={() => toggleCategories(r)}>
+                {expandedCategoriesId === r.id ? "Ocultar categorías" : "Categorías"}
+              </Button>
+              <Button size="sm" variant="secondary" className="ml-auto" onClick={() => togglePause(r)}>
+                {r.status === "active" ? "Pausar" : "Reactivar"}
+              </Button>
             </div>
-            <span
-              className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                r.status === "active" ? "bg-emerald-100 text-emerald-700" : "bg-neutral-200 text-neutral-600"
-              }`}
-            >
-              {r.status === "active" ? "Activo" : "Pausado"}
-            </span>
-            <span className="text-xs text-neutral-500">Plan {r.plan}</span>
-            <span className="text-xs text-neutral-500">{visits[r.id] ?? 0} visitas totales</span>
-            <select
-              className="rounded-lg border border-black/15 px-2 py-1 text-xs"
-              value={r.theme}
-              onChange={(e) => changeTheme(r, e.target.value as ThemeKey)}
-            >
-              {Object.entries(THEMES).map(([key, t]) => (
-                <option key={key} value={key}>
-                  {t.label}
-                </option>
-              ))}
-            </select>
-            <Button size="sm" variant="secondary" className="ml-auto" onClick={() => togglePause(r)}>
-              {r.status === "active" ? "Pausar" : "Reactivar"}
-            </Button>
+            {expandedCategoriesId === r.id && (
+              <div className="mt-3 border-t border-black/10 pt-3">
+                {loadingCategories ? (
+                  <p className="text-sm text-neutral-500">Cargando categorías…</p>
+                ) : (
+                  <CategoryManager
+                    restaurantId={r.id}
+                    categories={categoriesByRestaurant}
+                    dishes={dishesByRestaurant}
+                    onChanged={() => loadCategories(r.id)}
+                  />
+                )}
+              </div>
+            )}
           </div>
         ))}
       </div>
