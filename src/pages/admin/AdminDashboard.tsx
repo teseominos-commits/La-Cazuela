@@ -5,17 +5,9 @@ import { Button } from "../../components/ui/button";
 import { Input, Label } from "../../components/ui/input";
 import { CategoryManager } from "../../components/CategoryManager";
 import { THEMES } from "../../themes";
-import type { Category, Dish, Restaurant, ThemeKey } from "../../types";
+import { slugify } from "../../lib/slug";
+import type { Category, Restaurant, ThemeKey } from "../../types";
 import AdminLogin from "./AdminLogin";
-
-function slugify(name: string) {
-  return name
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
-}
 
 export default function AdminDashboard() {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
@@ -26,8 +18,8 @@ export default function AdminDashboard() {
   const [creating, setCreating] = useState(false);
   const [expandedCategoriesId, setExpandedCategoriesId] = useState<string | null>(null);
   const [categoriesByRestaurant, setCategoriesByRestaurant] = useState<Category[]>([]);
-  const [dishesByRestaurant, setDishesByRestaurant] = useState<Dish[]>([]);
   const [loadingCategories, setLoadingCategories] = useState(false);
+  const [pageError, setPageError] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
@@ -36,14 +28,32 @@ export default function AdminDashboard() {
   }, []);
 
   const load = useCallback(async () => {
-    const { data: admin } = await supabase.from("platform_admins").select("user_id").maybeSingle();
+    const { data: admin, error: adminError } = await supabase
+      .from("platform_admins")
+      .select("user_id")
+      .maybeSingle();
+    if (adminError) {
+      setPageError("No se pudo comprobar tu acceso de administrador.");
+      return;
+    }
     setIsAdmin(!!admin);
     if (!admin) return;
 
-    const { data: rs } = await supabase.from("restaurants").select("*").order("created_at", { ascending: false });
+    const { data: rs, error: rsError } = await supabase
+      .from("restaurants")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (rsError) {
+      setPageError("No se pudo cargar la lista de restaurantes.");
+      return;
+    }
     setRestaurants((rs as Restaurant[]) ?? []);
 
-    const { data: vc } = await supabase.from("visit_counts").select("restaurant_id, count");
+    const { data: vc, error: vcError } = await supabase.from("visit_counts").select("restaurant_id, count");
+    if (vcError) {
+      setPageError("No se pudieron cargar las estadísticas de visitas.");
+      return;
+    }
     const totals: Record<string, number> = {};
     (vc ?? []).forEach((row) => {
       totals[row.restaurant_id] = (totals[row.restaurant_id] ?? 0) + row.count;
@@ -57,13 +67,17 @@ export default function AdminDashboard() {
 
   const loadCategories = useCallback(async (restaurantId: string) => {
     setLoadingCategories(true);
-    const [{ data: cats }, { data: ds }] = await Promise.all([
-      supabase.from("categories").select("*").eq("restaurant_id", restaurantId).order("sort_order"),
-      supabase.from("dishes").select("*").eq("restaurant_id", restaurantId),
-    ]);
-    setCategoriesByRestaurant((cats as Category[]) ?? []);
-    setDishesByRestaurant((ds as Dish[]) ?? []);
+    const { data: cats, error: catsError } = await supabase
+      .from("categories")
+      .select("*")
+      .eq("restaurant_id", restaurantId)
+      .order("sort_order");
     setLoadingCategories(false);
+    if (catsError) {
+      setPageError("No se pudieron cargar las categorías de este restaurante.");
+      return;
+    }
+    setCategoriesByRestaurant((cats as Category[]) ?? []);
   }, []);
 
   if (session === undefined || (session && isAdmin === null)) return null;
@@ -79,8 +93,9 @@ export default function AdminDashboard() {
   async function createRestaurant(e: React.FormEvent) {
     e.preventDefault();
     setCreating(true);
+    setPageError(null);
     const slug = slugify(form.name);
-    await supabase.from("restaurants").insert({
+    const { error } = await supabase.from("restaurants").insert({
       name: form.name,
       slug,
       theme: form.theme,
@@ -88,21 +103,39 @@ export default function AdminDashboard() {
       status: "active",
       plan: "basico",
     });
-    setForm({ name: "", owner_email: "", theme: "mediterraneo_calido" });
     setCreating(false);
+    if (error) {
+      setPageError(
+        error.code === "23505"
+          ? "Ya existe un restaurante con ese nombre (o uno muy parecido)."
+          : "No se pudo dar de alta el restaurante. Inténtalo de nuevo.",
+      );
+      return;
+    }
+    setForm({ name: "", owner_email: "", theme: "mediterraneo_calido" });
     load();
   }
 
   async function togglePause(r: Restaurant) {
-    await supabase
+    setPageError(null);
+    const { error } = await supabase
       .from("restaurants")
       .update({ status: r.status === "active" ? "paused" : "active" })
       .eq("id", r.id);
+    if (error) {
+      setPageError(`No se pudo ${r.status === "active" ? "pausar" : "reactivar"} el restaurante.`);
+      return;
+    }
     load();
   }
 
   async function changeTheme(r: Restaurant, theme: ThemeKey) {
-    await supabase.from("restaurants").update({ theme }).eq("id", r.id);
+    setPageError(null);
+    const { error } = await supabase.from("restaurants").update({ theme }).eq("id", r.id);
+    if (error) {
+      setPageError("No se pudo cambiar el tema.");
+      return;
+    }
     load();
   }
 
@@ -123,6 +156,10 @@ export default function AdminDashboard() {
           Cerrar sesión
         </Button>
       </div>
+
+      {pageError && (
+        <p className="mb-4 max-w-2xl rounded-lg bg-red-50 p-3 text-sm text-red-600">{pageError}</p>
+      )}
 
       <form onSubmit={createRestaurant} className="mb-8 grid grid-cols-1 max-w-2xl gap-3 rounded-2xl border border-black/10 bg-white p-5 sm:grid-cols-3">
         <div className="sm:col-span-1">
@@ -204,7 +241,6 @@ export default function AdminDashboard() {
                   <CategoryManager
                     restaurantId={r.id}
                     categories={categoriesByRestaurant}
-                    dishes={dishesByRestaurant}
                     onChanged={() => loadCategories(r.id)}
                   />
                 )}

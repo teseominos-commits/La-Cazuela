@@ -27,16 +27,23 @@ export function DailyMenuTab({
     },
   );
   const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   async function save() {
     setSaving(true);
-    await supabase.from("daily_menus").upsert({ ...form, restaurant_id: restaurantId });
+    setFormError(null);
+    const { error } = await supabase.from("daily_menus").upsert({ ...form, restaurant_id: restaurantId });
     setSaving(false);
+    if (error) {
+      setFormError("No se pudo guardar el menú del día.");
+      return;
+    }
     onChanged();
   }
 
   return (
     <div className="max-w-lg space-y-3 rounded-2xl border border-black/10 bg-white p-5">
+      {formError && <p className="text-sm text-red-600">{formError}</p>}
       <label className="flex items-center gap-2 text-sm font-medium">
         <input
           type="checkbox"

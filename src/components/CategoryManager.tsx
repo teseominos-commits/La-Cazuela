@@ -2,62 +2,100 @@ import { useState } from "react";
 import { supabase } from "../lib/supabase";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import type { Category, Dish } from "../types";
+import type { Category } from "../types";
 
 export function CategoryManager({
   restaurantId,
   categories,
-  dishes,
   onChanged,
 }: {
   restaurantId: string;
   categories: Category[];
-  dishes: Dish[];
   onChanged: () => void;
 }) {
   const [newCategoryName, setNewCategoryName] = useState("");
   const [creatingCategory, setCreatingCategory] = useState(false);
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [editingCategoryName, setEditingCategoryName] = useState("");
+  const [formError, setFormError] = useState<string | null>(null);
 
   async function addCategory(e: React.FormEvent) {
     e.preventDefault();
-    if (!newCategoryName.trim()) return;
+    const name = newCategoryName.trim();
+    if (!name || creatingCategory) return;
+
     setCreatingCategory(true);
-    const nextSortOrder = categories.reduce((max, c) => Math.max(max, c.sort_order), -1) + 1;
-    await supabase.from("categories").insert({
+    setFormError(null);
+
+    const { data: maxRow } = await supabase
+      .from("categories")
+      .select("sort_order")
+      .eq("restaurant_id", restaurantId)
+      .order("sort_order", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const nextSortOrder = (maxRow?.sort_order ?? -1) + 1;
+
+    const { error } = await supabase.from("categories").insert({
       restaurant_id: restaurantId,
-      name: newCategoryName.trim(),
+      name,
       sort_order: nextSortOrder,
     });
-    setNewCategoryName("");
+
     setCreatingCategory(false);
+    if (error) {
+      setFormError("No se pudo crear la categoría. Inténtalo de nuevo.");
+      return;
+    }
+    setNewCategoryName("");
     onChanged();
   }
 
   function startEditCategory(c: Category) {
     setEditingCategoryId(c.id);
     setEditingCategoryName(c.name);
+    setFormError(null);
   }
 
   async function saveEditCategory() {
-    if (!editingCategoryId || !editingCategoryName.trim()) return;
-    await supabase
+    const name = editingCategoryName.trim();
+    if (!editingCategoryId || !name) return;
+
+    const { error } = await supabase
       .from("categories")
-      .update({ name: editingCategoryName.trim() })
+      .update({ name })
       .eq("id", editingCategoryId);
+
+    if (error) {
+      setFormError("No se pudo renombrar la categoría.");
+      return;
+    }
     setEditingCategoryId(null);
     onChanged();
   }
 
   async function deleteCategory(c: Category) {
-    const dishCount = dishes.filter((d) => d.category_id === c.id).length;
-    if (dishCount > 0) {
-      alert(`No se puede borrar "${c.name}": tiene ${dishCount} plato(s). Muévelos o bórralos primero.`);
+    setFormError(null);
+    const { count, error: countError } = await supabase
+      .from("dishes")
+      .select("id", { count: "exact", head: true })
+      .eq("category_id", c.id);
+
+    if (countError) {
+      setFormError("No se pudo comprobar la categoría antes de borrarla.");
+      return;
+    }
+    if ((count ?? 0) > 0) {
+      alert(`No se puede borrar "${c.name}": tiene ${count} plato(s). Muévelos o bórralos primero.`);
       return;
     }
     if (!confirm(`¿Borrar la categoría "${c.name}"?`)) return;
-    await supabase.from("categories").delete().eq("id", c.id);
+
+    const { error } = await supabase.from("categories").delete().eq("id", c.id);
+    if (error) {
+      setFormError("No se pudo borrar la categoría.");
+      return;
+    }
     onChanged();
   }
 
@@ -97,6 +135,7 @@ export function CategoryManager({
           ))}
         </div>
       )}
+      {formError && <p className="mb-2 text-sm text-red-600">{formError}</p>}
       <form onSubmit={addCategory} className="flex gap-2">
         <Input
           placeholder="Nueva categoría (ej. Postres)"

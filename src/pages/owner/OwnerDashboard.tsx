@@ -20,6 +20,7 @@ export default function OwnerDashboard() {
   const [tab, setTab] = useState<Tab>("platos");
   const [loadingData, setLoadingData] = useState(false);
   const [notLinked, setNotLinked] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
@@ -29,12 +30,18 @@ export default function OwnerDashboard() {
 
   const loadData = useCallback(async (userId: string) => {
     setLoadingData(true);
-    const { data: r } = await supabase
+    setLoadError(null);
+    const { data: r, error: rError } = await supabase
       .from("restaurants")
       .select("*")
       .eq("owner_user_id", userId)
       .maybeSingle();
 
+    if (rError) {
+      setLoadError("No se pudo cargar tu restaurante. Comprueba tu conexión e inténtalo de nuevo.");
+      setLoadingData(false);
+      return;
+    }
     if (!r) {
       setNotLinked(true);
       setLoadingData(false);
@@ -42,15 +49,23 @@ export default function OwnerDashboard() {
     }
     setRestaurant(r as Restaurant);
 
-    const [{ data: cats }, { data: ds }, { data: dm }] = await Promise.all([
+    const [
+      { data: cats, error: catsError },
+      { data: ds, error: dsError },
+      { data: dm, error: dmError },
+    ] = await Promise.all([
       supabase.from("categories").select("*").eq("restaurant_id", r.id).order("sort_order"),
       supabase.from("dishes").select("*").eq("restaurant_id", r.id).order("sort_order"),
       supabase.from("daily_menus").select("*").eq("restaurant_id", r.id).maybeSingle(),
     ]);
+    setLoadingData(false);
+    if (catsError || dsError || dmError) {
+      setLoadError("No se pudieron cargar todos los datos de tu restaurante.");
+      return;
+    }
     setCategories((cats as Category[]) ?? []);
     setDishes((ds as Dish[]) ?? []);
     setDailyMenu((dm as DailyMenu) ?? null);
-    setLoadingData(false);
   }, []);
 
   useEffect(() => {
@@ -65,6 +80,17 @@ export default function OwnerDashboard() {
       <div className="flex min-h-screen items-center justify-center px-6 text-center text-neutral-600">
         Tu cuenta todavía no está vinculada a ningún restaurante. Contacta con
         quien te dio de alta para que la asocie a tu carta.
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 px-6 text-center text-neutral-600">
+        <p>{loadError}</p>
+        <Button size="sm" onClick={() => loadData(session.user.id)}>
+          Reintentar
+        </Button>
       </div>
     );
   }

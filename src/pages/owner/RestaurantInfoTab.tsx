@@ -2,8 +2,7 @@ import { useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { appUrl } from "../../lib/url";
 import { fileExtension } from "../../lib/files";
-import { downloadMenuPdf } from "../../lib/menuPdf";
-import { downloadCompactMenuPdf } from "../../lib/menuPdfCompact";
+import { validateImageFile } from "../../lib/validateImageFile";
 import { Button } from "../../components/ui/button";
 import { Input, Label, Textarea } from "../../components/ui/input";
 import { QrDownload } from "../../components/QrDownload";
@@ -33,11 +32,17 @@ export function RestaurantInfoTab({
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState<"large" | "compact" | null>(null);
   const [savingQr, setSavingQr] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   async function handleDownloadPdf() {
     setGeneratingPdf("large");
+    setFormError(null);
     try {
+      // Carga diferida: jsPDF solo hace falta aquí, no en la carta pública.
+      const { downloadMenuPdf } = await import("../../lib/menuPdf");
       await downloadMenuPdf(restaurant, categories, dishes);
+    } catch {
+      setFormError("No se pudo generar el PDF. Inténtalo de nuevo.");
     } finally {
       setGeneratingPdf(null);
     }
@@ -45,8 +50,12 @@ export function RestaurantInfoTab({
 
   async function handleDownloadCompactPdf() {
     setGeneratingPdf("compact");
+    setFormError(null);
     try {
+      const { downloadCompactMenuPdf } = await import("../../lib/menuPdfCompact");
       await downloadCompactMenuPdf(restaurant, categories, dishes);
+    } catch {
+      setFormError("No se pudo generar el PDF. Inténtalo de nuevo.");
     } finally {
       setGeneratingPdf(null);
     }
@@ -54,33 +63,59 @@ export function RestaurantInfoTab({
 
   async function save() {
     setSaving(true);
-    await supabase.from("restaurants").update(form).eq("id", restaurant.id);
+    setFormError(null);
+    const { error } = await supabase.from("restaurants").update(form).eq("id", restaurant.id);
     setSaving(false);
+    if (error) {
+      setFormError("No se pudieron guardar los cambios.");
+      return;
+    }
     onChanged();
   }
 
   async function saveQrPrefs() {
     setSavingQr(true);
-    await supabase
+    setFormError(null);
+    const { error } = await supabase
       .from("restaurants")
       .update({ pdf_qr_enabled: form.pdf_qr_enabled, pdf_qr_size: form.pdf_qr_size })
       .eq("id", restaurant.id);
     setSavingQr(false);
+    if (error) {
+      setFormError("No se pudo guardar la preferencia del QR.");
+      return;
+    }
     onChanged();
   }
 
   async function handleLogo(file: File) {
+    const validationError = validateImageFile(file);
+    if (validationError) {
+      setFormError(validationError);
+      return;
+    }
     setUploadingLogo(true);
+    setFormError(null);
     const path = `${restaurant.id}/logo-${Date.now()}.${fileExtension(file)}`;
-    const { error } = await supabase.storage
+    const { error: uploadError } = await supabase.storage
       .from("restaurant-assets")
       .upload(path, file, { upsert: true });
-    if (!error) {
-      const { data } = supabase.storage.from("restaurant-assets").getPublicUrl(path);
-      await supabase.from("restaurants").update({ logo_url: data.publicUrl }).eq("id", restaurant.id);
-      onChanged();
+    if (uploadError) {
+      setFormError("No se pudo subir el logo.");
+      setUploadingLogo(false);
+      return;
     }
+    const { data } = supabase.storage.from("restaurant-assets").getPublicUrl(path);
+    const { error: updateError } = await supabase
+      .from("restaurants")
+      .update({ logo_url: data.publicUrl })
+      .eq("id", restaurant.id);
     setUploadingLogo(false);
+    if (updateError) {
+      setFormError("El logo se subió pero no se pudo asociar al restaurante.");
+      return;
+    }
+    onChanged();
   }
 
   const menuUrl = appUrl(restaurant.slug);
@@ -88,6 +123,7 @@ export function RestaurantInfoTab({
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
       <div className="w-full max-w-lg space-y-3 rounded-2xl border border-black/10 bg-white p-5 min-w-0">
+        {formError && <p className="text-sm text-red-600">{formError}</p>}
         <div className="flex items-center gap-3">
           {restaurant.logo_url ? (
             <img src={restaurant.logo_url} className="h-14 w-14 rounded-full object-cover" />

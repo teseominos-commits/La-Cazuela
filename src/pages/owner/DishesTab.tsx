@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { fileExtension } from "../../lib/files";
+import { validateImageFile } from "../../lib/validateImageFile";
 import { Button } from "../../components/ui/button";
 import { Input, Label, Textarea } from "../../components/ui/input";
 import { AllergenIcon } from "../../components/AllergenIcon";
@@ -41,6 +42,7 @@ export function DishesTab({
   const [showMoreAllergens, setShowMoreAllergens] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploadingId, setUploadingId] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
 
   function startEdit(d: Dish) {
     setForm({
@@ -70,6 +72,7 @@ export function DishesTab({
     e.preventDefault();
     if (!form.category_id || !form.name || !form.price) return;
     setSaving(true);
+    setFormError(null);
     const payload = {
       restaurant_id: restaurantId,
       category_id: form.category_id,
@@ -81,42 +84,68 @@ export function DishesTab({
       is_vegan: form.is_vegan,
       allergens: form.allergens,
     };
-    if (form.id) {
-      await supabase.from("dishes").update(payload).eq("id", form.id);
-    } else {
-      await supabase.from("dishes").insert(payload);
-    }
+    const { error } = form.id
+      ? await supabase.from("dishes").update(payload).eq("id", form.id)
+      : await supabase.from("dishes").insert(payload);
     setSaving(false);
+    if (error) {
+      setFormError("No se pudo guardar el plato. Inténtalo de nuevo.");
+      return;
+    }
     setForm(emptyForm);
     onChanged();
   }
 
   async function handleDelete(id: string) {
     if (!confirm("¿Borrar este plato?")) return;
-    await supabase.from("dishes").delete().eq("id", id);
+    const { error } = await supabase.from("dishes").delete().eq("id", id);
+    if (error) {
+      setFormError("No se pudo borrar el plato.");
+      return;
+    }
     onChanged();
   }
 
   async function toggleSoldOut(d: Dish) {
-    await supabase
+    const { error } = await supabase
       .from("dishes")
       .update({ is_sold_out: !d.is_sold_out })
       .eq("id", d.id);
+    if (error) {
+      setFormError("No se pudo actualizar la disponibilidad del plato.");
+      return;
+    }
     onChanged();
   }
 
   async function handlePhoto(d: Dish, file: File) {
+    const validationError = validateImageFile(file);
+    if (validationError) {
+      setFormError(validationError);
+      return;
+    }
     setUploadingId(d.id);
+    setFormError(null);
     const path = `${restaurantId}/dishes/${d.id}-${Date.now()}.${fileExtension(file)}`;
-    const { error } = await supabase.storage
+    const { error: uploadError } = await supabase.storage
       .from("restaurant-assets")
       .upload(path, file, { upsert: true });
-    if (!error) {
-      const { data } = supabase.storage.from("restaurant-assets").getPublicUrl(path);
-      await supabase.from("dishes").update({ photo_url: data.publicUrl }).eq("id", d.id);
-      onChanged();
+    if (uploadError) {
+      setFormError("No se pudo subir la foto.");
+      setUploadingId(null);
+      return;
     }
+    const { data } = supabase.storage.from("restaurant-assets").getPublicUrl(path);
+    const { error: updateError } = await supabase
+      .from("dishes")
+      .update({ photo_url: data.publicUrl })
+      .eq("id", d.id);
     setUploadingId(null);
+    if (updateError) {
+      setFormError("La foto se subió pero no se pudo asociar al plato.");
+      return;
+    }
+    onChanged();
   }
 
   return (
@@ -124,7 +153,6 @@ export function DishesTab({
       <CategoryManager
         restaurantId={restaurantId}
         categories={categories}
-        dishes={dishes}
         onChanged={onChanged}
       />
 
@@ -132,6 +160,7 @@ export function DishesTab({
         <h3 className="mb-3 font-semibold">
           {form.id ? "Editar plato" : "Añadir plato"}
         </h3>
+        {formError && <p className="mb-3 text-sm text-red-600">{formError}</p>}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
             <Label>Categoría</Label>
