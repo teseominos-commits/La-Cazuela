@@ -1,0 +1,68 @@
+name: Desplegar a GitHub Pages
+
+on:
+  push:
+    branches:
+      - claude/nuevo-proyecto-6q8civ
+
+# Permiso mínimo necesario: solo escribir contenido en este repositorio,
+# nada de administración. El token lo genera y caduca GitHub automáticamente.
+permissions:
+  contents: write
+
+concurrency:
+  group: deploy-gh-pages
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Compilar la web
+        env:
+          VITE_BASE_PATH: /La-Cazuela/
+          # Claves públicas de Supabase (publishable key), protegidas por RLS,
+          # no son secretas: ya son visibles en el propio bundle del navegador.
+          VITE_SUPABASE_URL: https://vkcfvzgnqgebeghgzdvd.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_GIWekCG8uYpoDye_N5zv1w_s2UI9Tqs
+        run: npm run build
+
+      - name: Preparar el truco SPA de GitHub Pages
+        run: cp dist/index.html dist/404.html
+
+      - name: Publicar en la rama gh-pages
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git fetch origin gh-pages
+          git worktree add /tmp/gh-pages-deploy origin/gh-pages
+
+          # Sustituye solo lo generado por el build; respeta .nojekyll y cualquier otro archivo manual.
+          rm -rf /tmp/gh-pages-deploy/assets \
+                 /tmp/gh-pages-deploy/index.html \
+                 /tmp/gh-pages-deploy/404.html \
+                 /tmp/gh-pages-deploy/favicon.svg \
+                 /tmp/gh-pages-deploy/icons.svg
+          cp -r dist/. /tmp/gh-pages-deploy/
+
+          cd /tmp/gh-pages-deploy
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Sin cambios que desplegar."
+          else
+            git commit -m "Deploy automático: ${{ github.sha }}"
+            git push origin HEAD:gh-pages
+          fi
